@@ -100,7 +100,6 @@ public static class Load_PortalStation_UI
         foreach (ButtonSfx? component in go.GetComponentsInChildren<ButtonSfx>(true)) component.m_sfxPrefab = sfx;
         FontManager.SetFont(panelTexts);
         FontManager.SetFont(listItemTexts);
-        go.transform.position = PortalStationsPlugin.PanelPos.Value;
         
         go.AddComponent<PortalStationUI>();
     }
@@ -148,6 +147,7 @@ public static class InventoryGui_IsVisible_Patch
 
 public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHandler
 {
+    public static Sprite PortableItemIcon = null!;
     public static readonly GameObject ListItem = AssetBundleManager.LoadAsset<GameObject>("stationui", "PortalStationItem")!;
     public enum BackgroundOption { Opaque, Transparent }
     
@@ -201,6 +201,10 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
     
     public enum DeviceType { None, Station, Item }
 
+    private static string defaultTopic = string.Empty;
+
+    private static string defaultTooltip = string.Empty;
+
     public void Awake()
     {
         instance = this;
@@ -235,6 +239,16 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
                 rect.scrollSensitivity = 700f;
         m_defaultIcon = Icon.sprite;
         m_starIcon = Requirements.favorite.Icon.sprite;
+        
+        StringBuilder sb = new();
+        sb.Append("Welcome to Portal Station!\n");
+        sb.Append("Press the <color=orange>star</color> icon to save/remove portal to your favorites\n");
+        sb.Append("Press the <color=orange>portal</color> icon to open map to see where it is\n");
+        sb.Append("<color=yellow>[L.Alt + Mouse]</color> to drag panel");
+        defaultTooltip = sb.ToString();
+        defaultTopic = "Portal Stations";
+        
+        SetPanelPosition(PortalStationsPlugin.PanelPos.Value);
     }
 
     public void Start()
@@ -301,7 +315,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         Requirements.SetActive(false);
         m_destination = null;
         SettingTab.Enable(true);
-        PlayerTab.Enable(PortalStationsPlugin._PortalToPlayers.Value is PortalStationsPlugin.Toggle.On);
+        PlayerTab.Enable(PortalStationsPlugin.PortalToPlayers);
     }
 
     public void Show(Player user, ItemDrop.ItemData item)
@@ -320,7 +334,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         MainButton.gameObject.SetActive(false);
         Requirements.SetActive(false);
         m_destination = null;
-        PlayerTab.Enable(PortalStationsPlugin._PortalToPlayers.Value is PortalStationsPlugin.Toggle.On);
+        PlayerTab.Enable(PortalStationsPlugin.PortalToPlayers);
         SettingTab.Enable(m_currentStationInfo.CreatorName == Player.m_localPlayer.GetPlayerName());
     }
 
@@ -418,14 +432,38 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         LeftPanelRoot.sizeDelta = new Vector2(LeftPanelRoot.sizeDelta.x, Mathf.Max(newHeight, m_leftListMinHeight));
     }
 
+    private void SetupLastPosition()
+    {
+        if (Player.m_localPlayer?.GetInventory().GetItem("$item_personal_teleportation_device") is not { } portableItem) return;
+        PersonalTeleportationDevice.ExtraItemData extraData = portableItem.GetExtraData();
+        if (!extraData.hasLastPosition) return;
+        StationInfo portableInfo = new StationInfo(extraData);
+        TempListItem item = new TempListItem();
+        item.SetLabel(portableInfo.Name);
+        item.SetIcon(PortableItemIcon);
+        item.SetButton(() =>
+        {
+            item.SetSelected(true);
+            Description.SetName(portableInfo.Name);
+            Description.SetBodyText(portableInfo.GetTooltip());
+            Description.ShowMapButton(portableInfo);
+            Requirements.LoadTeleportCost(portableInfo);
+            m_destination = portableInfo;
+            Requirements.favorite.SetFavorite(portableInfo.IsFavorite);
+            MainButton.gameObject.SetActive(true);
+            MainButton.interactable = portableInfo.CanTeleport(false);
+        });
+    }
+
     public void LoadStations(bool favoriteOnly = false)
     {
         DestroyTempItems();
+        SetupLastPosition();
         foreach (StationInfo? info in StationManager.GetStations().Where(zdo => zdo != m_currentStation?.m_nview.GetZDO()).Select(zdo => new StationInfo(zdo)).OrderBy(info => info.Name))
         {
             if (!info.IsValid) continue;
             if (favoriteOnly && !info.IsFavorite) continue;
-            var item = new TempListItem();
+            TempListItem item = new TempListItem();
             item.SetLabel(info.Name);
             item.SetIcon(info.IsFavorite ? m_starIcon : Minimap.instance.GetSprite(Minimap.PinType.Icon4));
             item.SetButton(() =>
@@ -450,9 +488,9 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         DestroyTempItems();
         foreach (ZNetPeer? peer in ZNet.instance.GetPeers())
         {
-            var info = new StationInfo(peer);
+            StationInfo info = new StationInfo(peer);
             if (!info.IsValid) continue;
-            var item = new TempListItem();
+            TempListItem item = new TempListItem();
             item.SetLabel(info.Name);
             item.SetIcon(Minimap.instance.GetSprite(Minimap.PinType.Icon1));
             item.SetButton(() =>
@@ -473,14 +511,14 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
     public void OnTeleport()
     {
         if (m_destination == null) return;
-        if (PortalStationsPlugin._UsePortalKeys.Value is PortalStationsPlugin.Toggle.On)
+        if (PortalStationsPlugin.UsePortalKeys)
         {
-            Dictionary<string, string> keys = new PortalStationsPlugin.SerializedKeys(PortalStationsPlugin._PortalKeys.Value).Keys;
+            Dictionary<string, string> keys = new PortalStationsPlugin.SerializedKeys(PortalStationsPlugin.PortalKeys).Keys;
             Dictionary<string, string> sharedNames = new Dictionary<string, string>();
             foreach (KeyValuePair<string, string> key in keys)
             {
                 if (ObjectDB.instance.GetItemPrefab(key.Key) is not { } itemPrefab) continue;
-                var item = itemPrefab.GetComponent<ItemDrop>();
+                ItemDrop? item = itemPrefab.GetComponent<ItemDrop>();
                 sharedNames.Add(item.m_itemData.m_shared.m_name, key.Value);
             }
             foreach (ItemDrop.ItemData? item in Player.m_localPlayer.GetInventory().GetAllItems())
@@ -499,7 +537,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
                 }
             }
         }
-        else if (PortalStationsPlugin._TeleportAnything.Value is PortalStationsPlugin.Toggle.Off && !Player.m_localPlayer.IsTeleportable())
+        else if (!PortalStationsPlugin.TeleportAnything && !Player.m_localPlayer.IsTeleportable())
         {
             Player.m_localPlayer.Message(MessageHud.MessageType.Center, "$msg_noteleport");
             return;
@@ -510,22 +548,20 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
             case DeviceType.None:
                 return;
             case DeviceType.Station:
-                if (PortalStationsPlugin._PortalUseFuel.Value is PortalStationsPlugin.Toggle.On &&
-                    !Player.m_localPlayer.NoCostCheat())
+                if (PortalStationsPlugin.PortalUseFuel && !Player.m_localPlayer.NoCostCheat())
                 {
-                    var cost = m_currentStationInfo?.GetCost(Player.m_localPlayer) ?? 0;
-                    var fuelItem = Requirement.GetFuelItem();
+                    int cost = m_currentStationInfo?.GetCost(Player.m_localPlayer) ?? 0;
+                    ItemDrop fuelItem = Requirement.GetFuelItem();
                     Player.m_localPlayer.GetInventory().RemoveItem(fuelItem.m_itemData.m_shared.m_name, cost);
                 }
                 break;
             case  DeviceType.Item:
-                if (PortalStationsPlugin._DeviceUseFuel.Value is PortalStationsPlugin.Toggle.On &&
-                    !Player.m_localPlayer.NoCostCheat()  && m_currentItem != null)
+                if (PortalStationsPlugin.DeviceUseFuel && !Player.m_localPlayer.NoCostCheat()  && m_currentItem != null)
                 {
-                    var cost = m_currentStationInfo?.GetCost(Player.m_localPlayer) ?? 0;
-                    var fuelItem = Requirement.GetFuelItem();
+                    int cost = m_currentStationInfo?.GetCost(Player.m_localPlayer) ?? 0;
+                    ItemDrop fuelItem = Requirement.GetFuelItem();
                     Player.m_localPlayer.GetInventory().RemoveItem(fuelItem.m_itemData.m_shared.m_name, cost);
-                    m_currentItem.m_durability -= PortalStationsPlugin._PersonalPortalDurabilityDrain.Value;
+                    m_currentItem.m_durability -= PortalStationsPlugin.PersonalPortalDurabilityDrain;
                 }
                 break;
         }
@@ -571,7 +607,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         instance.SetPanelPosition(config.Value);
     }
 
-    public void SetPanelPosition(Vector3 pos) => transform.position = pos;
+    public void SetPanelPosition(Vector3 pos) => m_rect.position = pos;
     public void UpdatePin(float dt)
     {
         if (m_tempPin == null) return;
@@ -908,8 +944,8 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         }
         public void ResetDescription()
         {
-            SetName("");
-            SetBodyText("");
+            SetName(defaultTopic);
+            SetBodyText(defaultTooltip);
             ShowMapButton(null);
             SetView(PanelView.Body);
         }
@@ -1021,7 +1057,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
             items.Add(new RequirementItem(Icon, Label, Amount));
         }
         
-        public static ItemDrop GetFuelItem() => ObjectDB.instance.GetItemPrefab(PortalStationsPlugin._DeviceFuel.Value)?.GetComponent<ItemDrop>() ?? ObjectDB.instance.GetItemPrefab("Coins").GetComponent<ItemDrop>();
+        public static ItemDrop GetFuelItem() => ObjectDB.instance.GetItemPrefab(PortalStationsPlugin.DeviceFuel)?.GetComponent<ItemDrop>() ?? ObjectDB.instance.GetItemPrefab("Coins").GetComponent<ItemDrop>();
         
         public void LoadTeleportCost(StationInfo destination)
         {
@@ -1161,7 +1197,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         public readonly string? GUID;
         public bool IsValid => !string.IsNullOrEmpty(Name) && Name != "Stranger" && Position != Vector3.zero;
         private readonly ZDO? zdo;
-        public static readonly StringBuilder sb = new StringBuilder();
+        private static readonly StringBuilder sb = new StringBuilder();
         
         private enum FilterOptions
         {
@@ -1192,6 +1228,14 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
                 FilterOptions.GuildGroupOnly => "$text_guild_and_group_only",
                 _ => ""
             };
+        }
+
+        public StationInfo(PersonalTeleportationDevice.ExtraItemData extraItemData)
+        {
+            Position = extraItemData.lastPosition;
+            Name = "Return";
+            Guild = "";
+            IsFree = true;
         }
 
         public StationInfo(ZDO zdo)
@@ -1238,12 +1282,12 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
             switch (instance.m_deviceType)
             {
                 case DeviceType.Station:
-                    return PortalStationsPlugin._PortalUseFuel.Value is PortalStationsPlugin.Toggle.Off ? 0 : Mathf.Max(1, Mathf.FloorToInt(Mathf.CeilToInt(GetDistance(player)) * PortalStationsPlugin._PortalPerFuelAmount.Value));
+                    return !PortalStationsPlugin.PortalUseFuel ? 0 : Mathf.Max(1, Mathf.FloorToInt(Mathf.CeilToInt(GetDistance(player)) * PortalStationsPlugin.PortalPerFuelAmount));
                 case DeviceType.Item:
-                    if (PortalStationsPlugin._DeviceUseFuel.Value is PortalStationsPlugin.Toggle.Off) return 0;
-                    var quality = instance.m_currentItem?.m_quality ?? 1;
-                    var cost = Mathf.Max(1, Mathf.FloorToInt(Mathf.CeilToInt(GetDistance(player)) * PortalStationsPlugin._DevicePerFuelAmount.Value));
-                    var modifiedCost = Mathf.FloorToInt(cost / (quality * PortalStationsPlugin._DeviceAdditionalDistancePerUpgrade.Value));
+                    if (!PortalStationsPlugin.DeviceUseFuel) return 0;
+                    int quality = instance.m_currentItem?.m_quality ?? 1;
+                    int cost = Mathf.Max(1, Mathf.FloorToInt(Mathf.CeilToInt(GetDistance(player)) * PortalStationsPlugin.DevicePerFuelAmount));
+                    int modifiedCost = Mathf.FloorToInt(cost / (quality * PortalStationsPlugin.DeviceAdditionalDistancePerUpgrade));
                     return modifiedCost;
             }
             return 0;
@@ -1266,22 +1310,21 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
             switch (instance.m_deviceType)
             {
                 case  DeviceType.Station:
-                    if (PortalStationsPlugin._PortalUseFuel.Value is PortalStationsPlugin.Toggle.On && instance?.m_currentStation != null && !Player.m_localPlayer.NoCostCheat())
+                    if (PortalStationsPlugin.PortalUseFuel && instance.m_currentStation != null && !Player.m_localPlayer.NoCostCheat())
                     {
-                        var cost = GetCost(Player.m_localPlayer);
-                        var fuelItem = Requirement.GetFuelItem();
-                        var inventoryCount = Player.m_localPlayer.GetInventory().CountItems(fuelItem.m_itemData.m_shared.m_name);
+                        int cost = GetCost(Player.m_localPlayer);
+                        ItemDrop fuelItem = Requirement.GetFuelItem();
+                        int inventoryCount = Player.m_localPlayer.GetInventory().CountItems(fuelItem.m_itemData.m_shared.m_name);
                         if (cost > inventoryCount) return false;
                     }
                     break;
                 case DeviceType.Item:
-                    if (PortalStationsPlugin._DeviceUseFuel.Value is PortalStationsPlugin.Toggle.On &&
-                        instance.m_currentItem != null && !Player.m_localPlayer.NoCostCheat())
+                    if (PortalStationsPlugin.DeviceUseFuel && instance.m_currentItem != null && !Player.m_localPlayer.NoCostCheat())
                     {
-                        var cost = GetCost(Player.m_localPlayer);
-                        var modified = Mathf.FloorToInt(cost / (instance.m_currentItem?.m_quality ?? 1 / PortalStationsPlugin._DeviceAdditionalDistancePerUpgrade.Value));
-                        var fuelItem = Requirement.GetFuelItem();
-                        var inventoryCount = Player.m_localPlayer.GetInventory().CountItems(fuelItem.m_itemData.m_shared.m_name);
+                        int cost = GetCost(Player.m_localPlayer);
+                        int modified = Mathf.FloorToInt(cost / (instance.m_currentItem?.m_quality ?? 1 / PortalStationsPlugin.DeviceAdditionalDistancePerUpgrade));
+                        ItemDrop fuelItem = Requirement.GetFuelItem();
+                        int inventoryCount = Player.m_localPlayer.GetInventory().CountItems(fuelItem.m_itemData.m_shared.m_name);
                         if (modified > inventoryCount) return false;
                     }
                     break;

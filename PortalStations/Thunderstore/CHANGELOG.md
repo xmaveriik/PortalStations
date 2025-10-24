@@ -130,3 +130,10 @@
 ### 1.3.23
 - Added search field
 - Ordering portals by name alphabetically
+
+### 1.3.24
+- Fixed position slipping off screen logout/login by changing Transform to RectTransform on initializing
+- Fixed portal platform emission
+
+### 1.4.0
+- Force sending zdo to fix portals not showing up when server is not creating portal station

@@ -217,7 +217,7 @@ public class BuildPiece
             newSource.playOnAwake = source.playOnAwake;
             newSource.loop = source.loop;
             newSource.priority = source.priority;
-            newSource.volume = PortalStationsPlugin._PortalVolume.Value;
+            newSource.volume = PortalStationsPlugin.PortalVolume;
             newSource.pitch = source.pitch;
             newSource.panStereo = source.panStereo;
             newSource.spatialBlend = source.spatialBlend;

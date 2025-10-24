@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using HarmonyLib;
 using JetBrains.Annotations;
 using UnityEngine;
@@ -26,11 +28,13 @@ public class StationManager : MonoBehaviour
 
     public static StationManager instance = null!;
 
+    private static readonly WaitForSeconds interval = new (10f);
+
     public void Awake()
     {
         instance = this;
     }
-    
+
     public void InitCoroutine() => StartCoroutine(SendStationsToClient());
     
     private static IEnumerator SendStationsToClient()
@@ -49,12 +53,18 @@ public class StationManager : MonoBehaviour
                     }
                 }
 
-                foreach (ZDO zdo in TempZDOs)
+                // foreach (ZDO zdo in TempZDOs)
+                // {
+                //     ZDOMan.instance.ForceSendZDO(zdo.m_uid);
+                // }
+
+                foreach (ZDOMan.ZDOPeer? peer in ZDOMan.instance.m_peers)
                 {
-                    ZDOMan.instance.ForceSendZDO(zdo.m_uid);
+                    peer.m_forceSend.UnionWith(TempZDOs.Select(zdo => zdo.m_uid));
                 }
             }
-            yield return new WaitForSeconds(10f);
+
+            yield return interval;
         }
     }
 
@@ -71,14 +81,12 @@ public class StationManager : MonoBehaviour
 
         return new HashSet<ZDO>(Destinations);
     }
-    
-    
 }
 
 public static class StationManagerHelpers
 {
-    public static readonly ISerializer serializer = new SerializerBuilder().Build();
-    public static readonly IDeserializer deserializer = new DeserializerBuilder().Build();
+    private static readonly ISerializer serializer = new SerializerBuilder().Build();
+    private static readonly IDeserializer deserializer = new DeserializerBuilder().Build();
     public static void AddFavorite(this Player player, string stationGUID)
     {
         List<string> favorites = player.GetFavoriteStations();

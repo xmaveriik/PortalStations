@@ -6,7 +6,6 @@ using HarmonyLib;
 using JetBrains.Annotations;
 using PortalStations.UI;
 using UnityEngine;
-using static PortalStations.PortalStationsPlugin;
 
 namespace PortalStations.Stations;
 
@@ -81,8 +80,8 @@ public class PortalStation : MonoBehaviour, Interactable, Hoverable, TextReceive
         m_nview.Register<int>(nameof(RPC_SetFilter), RPC_SetFilter);
         m_nview.Register<string>(nameof(RPC_SetGuild), RPC_SetGuild);
         m_nview.Register<bool>(nameof(RPC_SetFree),RPC_SetFree);
-        
         if (!m_nview.IsOwner() || !Player.m_localPlayer) return;
+        ZDOMan.instance.ForceSendZDO(m_nview.GetZDO().m_uid);
         if (m_nview.GetZDO().GetString(StationVars.Name).IsNullOrWhiteSpace())
         {
             m_nview.GetZDO().Set(StationVars.Name, Player.m_localPlayer.GetPlayerName() + " Portal");
@@ -109,7 +108,7 @@ public class PortalStation : MonoBehaviour, Interactable, Hoverable, TextReceive
 
         foreach (MeshRenderer? renderer in GetComponentsInChildren<MeshRenderer>(true))
         {
-            foreach (Material? material in renderer.sharedMaterials)
+            foreach (Material? material in renderer.materials) // switched from shared to materials to make it affect only local portal
             {
                 if (material.HasProperty(EmissionMap) && material.GetTexture(EmissionMap) != null || material.HasProperty(EmissionTex) && material.GetTexture(EmissionTex) != null)
                 {
@@ -164,7 +163,7 @@ public class PortalStation : MonoBehaviour, Interactable, Hoverable, TextReceive
             m_light.intensity = m_intensity * m_lightBaseIntensity;
             m_light.enabled = m_light.intensity > 0.0;
         }
-        if (m_audioSource) m_audioSource.volume = m_intensity * _PortalVolume.Value;
+        if (m_audioSource) m_audioSource.volume = m_intensity * PortalStationsPlugin.PortalVolume;
         
         foreach (Emission emission in m_emissions)
         {

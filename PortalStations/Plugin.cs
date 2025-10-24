@@ -27,7 +27,7 @@ namespace PortalStations
     public class PortalStationsPlugin : BaseUnityPlugin
     {
         internal const string ModName = "PortalStations";
-        internal const string ModVersion = "1.3.23";
+        internal const string ModVersion = "1.4.0";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private const string ConfigFileName = ModGUID + ".cfg";
@@ -44,21 +44,34 @@ namespace PortalStations
         public enum Toggle { On = 1, Off = 0 }
         
         private static ConfigEntry<Toggle> _serverConfigLocked = null!;
-        public static ConfigEntry<Toggle> _TeleportAnything = null!;
-        public static ConfigEntry<string> _DeviceFuel = null!;
-        public static ConfigEntry<Toggle> _DeviceUseFuel = null!;
-        public static ConfigEntry<float> _DevicePerFuelAmount = null!;
-        public static ConfigEntry<float> _DeviceAdditionalDistancePerUpgrade = null!;
-        public static ConfigEntry<Toggle> _PortalToPlayers = null!;
-        public static ConfigEntry<Toggle> _PortalUseFuel = null!;
-        public static ConfigEntry<float> _PortalPerFuelAmount = null!;
-        public static ConfigEntry<Toggle> _UsePortalKeys = null!;
-        public static ConfigEntry<string> _PortalKeys = null!;
-        public static ConfigEntry<float> _PortalVolume = null!;
-        public static ConfigEntry<float> _PersonalPortalDurabilityDrain = null!;
+        private static ConfigEntry<Toggle> _TeleportAnything = null!;
+        private static ConfigEntry<string> _DeviceFuel = null!;
+        private static ConfigEntry<Toggle> _DeviceUseFuel = null!;
+        private static ConfigEntry<float> _DevicePerFuelAmount = null!;
+        private static ConfigEntry<float> _DeviceAdditionalDistancePerUpgrade = null!;
+        private static ConfigEntry<Toggle> _PortalToPlayers = null!;
+        private static ConfigEntry<Toggle> _PortalUseFuel = null!;
+        private static ConfigEntry<float> _PortalPerFuelAmount = null!;
+        private static ConfigEntry<Toggle> _UsePortalKeys = null!;
+        private static ConfigEntry<string> _PortalKeys = null!;
+        private static ConfigEntry<float> _PortalVolume = null!;
+        private static ConfigEntry<float> _PersonalPortalDurabilityDrain = null!;
         public static ConfigEntry<FontManager.FontOptions> _Font = null!;
         public static ConfigEntry<PortalStationUI.BackgroundOption> BkgOption = null!;
         public static ConfigEntry<Vector3> PanelPos = null!;
+
+        public static bool TeleportAnything => _TeleportAnything.Value is Toggle.On;
+        public static string DeviceFuel => _DeviceFuel.Value;
+        public static bool DeviceUseFuel => _DeviceUseFuel.Value is Toggle.On;
+        public static float DevicePerFuelAmount => _DevicePerFuelAmount.Value;
+        public static float DeviceAdditionalDistancePerUpgrade => _DeviceAdditionalDistancePerUpgrade.Value;
+        public static bool PortalToPlayers => _PortalToPlayers.Value is Toggle.On;
+        public static bool PortalUseFuel => _PortalUseFuel.Value is Toggle.On;
+        public static float PortalPerFuelAmount => _PortalPerFuelAmount.Value;
+        public static bool UsePortalKeys => _UsePortalKeys.Value is Toggle.On;
+        public static string PortalKeys => _PortalKeys.Value;
+        public static float PortalVolume => _PortalVolume.Value;
+        public static float PersonalPortalDurabilityDrain => _PersonalPortalDurabilityDrain.Value;
 
         private void InitConfigs()
         {
@@ -87,8 +100,8 @@ namespace PortalStations
 
         public class SerializedKeys
         {
-            public Dictionary<string, string> Keys = new();
-            public SerializedKeys(Dictionary<string, string> keys) => Keys = keys;
+            public readonly Dictionary<string, string> Keys = new();
+            private SerializedKeys(Dictionary<string, string> keys) => Keys = keys;
             public SerializedKeys(string config)
             {
                 foreach (var kvp in config.Split(','))
@@ -239,7 +252,10 @@ namespace PortalStations
             portalPlatform.DestroyedEffects.Add("sfx_rock_destroyed");
             portalPlatform.ClonePortalSFXFrom = "portal_wood";
             portalPlatform.Crafting.Set(CraftingTable.Workbench);
-
+            // var platformEmission = portalPlatform.Prefab.transform.Find("emissive").gameObject;
+            // platformEmission.SetActive(true);
+            // platformEmission.GetComponent<MeshRenderer>().material.color = Color.black;
+            
             MaterialReplacer.MaterialData StartPlatformMat = new MaterialReplacer.MaterialData(PrefabAssets, "_REPLACE_startplatform", MaterialReplacer.ShaderType.RockShader);
             StartPlatformMat.m_floatProperties["_Glossiness"] = 0.216f;
             StartPlatformMat.m_texProperties["_MossTex"] = PrefabAssets.LoadAsset<Texture>("tex_stone_moss1");
@@ -382,6 +398,8 @@ namespace PortalStations
             PersonalPortalDevice.MaximumRequiredStationLevel = 2;
             PersonalPortalDevice.Configurable = Configurability.Recipe;
             MaterialReplacer.RegisterGameObjectForMatSwap(Utils.FindChild(PersonalPortalDevice.Prefab.transform, "SurtlingCores").gameObject);
+            PortalStationUI.PortableItemIcon =
+                PersonalPortalDevice.Prefab.GetComponent<ItemDrop>().m_itemData.GetIcon();
 
         }
         private void OnDestroy() => Config.Save();
