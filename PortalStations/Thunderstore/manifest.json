@@ -1,9 +1,9 @@
 {
 	"name": "PortalStations",
-	"version_number": "1.4.0",
+	"version_number": "1.4.2",
 	"website_url": "https://github.com/RustyMods/PortalStations",
 	"description": "Adds Portal Stations and a Personal Teleportation Device which allow users to fast travel between locations.",
 	"dependencies": [
-		"denikson-BepInExPack_Valheim-5.4.2105"
+		"denikson-BepInExPack_Valheim-5.4.2333"
 	]
 }

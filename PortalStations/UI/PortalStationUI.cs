@@ -314,7 +314,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         OnUpdate = null;
         Requirements.SetActive(false);
         m_destination = null;
-        SettingTab.Enable(true);
+        SettingTab.Enable(!PortalStationsPlugin.OnlyOwnerCanEdit || m_currentStationInfo.CreatorID == player.GetPlayerID());
         PlayerTab.Enable(PortalStationsPlugin.PortalToPlayers);
     }
 
@@ -335,7 +335,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         Requirements.SetActive(false);
         m_destination = null;
         PlayerTab.Enable(PortalStationsPlugin.PortalToPlayers);
-        SettingTab.Enable(m_currentStationInfo.CreatorName == Player.m_localPlayer.GetPlayerName());
+        SettingTab.Enable(false);
     }
 
     public void OnStationTab()

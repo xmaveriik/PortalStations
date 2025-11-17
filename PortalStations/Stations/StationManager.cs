@@ -53,11 +53,6 @@ public class StationManager : MonoBehaviour
                     }
                 }
 
-                // foreach (ZDO zdo in TempZDOs)
-                // {
-                //     ZDOMan.instance.ForceSendZDO(zdo.m_uid);
-                // }
-
                 foreach (ZDOMan.ZDOPeer? peer in ZDOMan.instance.m_peers)
                 {
                     peer.m_forceSend.UnionWith(TempZDOs.Select(zdo => zdo.m_uid));

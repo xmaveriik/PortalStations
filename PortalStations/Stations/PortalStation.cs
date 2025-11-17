@@ -33,8 +33,7 @@ public static class Player_CheckCanRemovePiece_Patch
     [UsedImplicitly]
     private static void Postfix(Player __instance, Piece piece, ref bool __result)
     {
-        if (!piece.TryGetComponent(out PortalStation component)) return;
-        if (component.GetCreator() == __instance.GetPlayerID()) return;
+        if (!PortalStationsPlugin.OnlyOwnersCanDestroy || !piece.TryGetComponent(out PortalStation component) || component.GetCreator() == __instance.GetPlayerID()) return;
         __instance.Message(MessageHud.MessageType.Center, "$msg_not_creator");
         __result = false;
     }
@@ -87,6 +86,8 @@ public class PortalStation : MonoBehaviour, Interactable, Hoverable, TextReceive
             m_nview.GetZDO().Set(StationVars.Name, Player.m_localPlayer.GetPlayerName() + " Portal");
         }
     }
+    
+    public bool IsCreator(long playerID) => GetCreator() == playerID;
 
     public void LoadAssets()
     {

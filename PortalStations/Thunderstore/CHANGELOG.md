@@ -137,3 +137,11 @@
 
 ### 1.4.0
 - Force sending zdo to fix portals not showing up when server is not creating portal station
+
+### 1.4.1
+- Added config to toggle only owner can destroy
+
+### 1.4.2
+- Added config to toggle only owner can edit
+- settings tab disabled if only owner can edit and user is not owner
+- settings tab disabled if using portable portal

@@ -27,7 +27,7 @@ namespace PortalStations
     public class PortalStationsPlugin : BaseUnityPlugin
     {
         internal const string ModName = "PortalStations";
-        internal const string ModVersion = "1.4.0";
+        internal const string ModVersion = "1.4.2";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private const string ConfigFileName = ModGUID + ".cfg";
@@ -59,6 +59,8 @@ namespace PortalStations
         public static ConfigEntry<FontManager.FontOptions> _Font = null!;
         public static ConfigEntry<PortalStationUI.BackgroundOption> BkgOption = null!;
         public static ConfigEntry<Vector3> PanelPos = null!;
+        private static ConfigEntry<Toggle> _OnlyOwnersCanDestroy = null!;
+        private static ConfigEntry<Toggle> _OnlyCreatorCanEdit = null!;
 
         public static bool TeleportAnything => _TeleportAnything.Value is Toggle.On;
         public static string DeviceFuel => _DeviceFuel.Value;
@@ -72,6 +74,8 @@ namespace PortalStations
         public static string PortalKeys => _PortalKeys.Value;
         public static float PortalVolume => _PortalVolume.Value;
         public static float PersonalPortalDurabilityDrain => _PersonalPortalDurabilityDrain.Value;
+        public static bool OnlyOwnersCanDestroy => _OnlyOwnersCanDestroy.Value is Toggle.On;
+        public static bool OnlyOwnerCanEdit => _OnlyCreatorCanEdit.Value is Toggle.On;
 
         private void InitConfigs()
         {
@@ -96,6 +100,9 @@ namespace PortalStations
             BkgOption.SettingChanged += PortalStationUI.OnBackgroundOptionChange;
             PanelPos = config("Settings", "Panel Position", new Vector3(1760f, 850f, 0f), "Set position of panel", false);
             PanelPos.SettingChanged += PortalStationUI.OnPanelPositionConfigChange;
+            _OnlyOwnersCanDestroy =
+                config("Settings", "Ownership", Toggle.Off, "If on, only owners can destroy portal");
+            _OnlyCreatorCanEdit = config("Settings", "Edit", Toggle.On, "If on, only creator can edit portal settings");
         }
 
         public class SerializedKeys
@@ -213,6 +220,7 @@ namespace PortalStations
             MaterialReplacer.RegisterGameObjectForShaderSwap(PortalStation.Prefab.transform.Find("model").gameObject, MaterialReplacer.ShaderType.PieceShader);
             MaterialReplacer.RegisterGameObjectForMatSwap(Utils.FindChild(PortalStation.Prefab.transform, "vanilla_effects").gameObject);
             PortalStation.Prefab.AddComponent<PortalStation>();
+            PortalStation.Prefab.GetComponent<ZNetView>().m_distant = true;
             StationManager.PrefabsToSearch.Add(PortalStation.Prefab.name);
 
             BuildPiece PortalStationOne = new(PrefabAssets, "portalStationOne");
@@ -234,6 +242,7 @@ namespace PortalStations
             // MaterialReplacer.RegisterGameObjectForShaderSwap(PortalStationOne.Prefab.transform.Find("VisualRoot").gameObject, MaterialReplacer.ShaderType.PieceShader);
             MaterialReplacer.RegisterGameObjectForMatSwap(Utils.FindChild(PortalStationOne.Prefab.transform, "vanilla_effects").gameObject);
             PortalStationOne.Prefab.AddComponent<PortalStation>();
+            PortalStationOne.Prefab.GetComponent<ZNetView>().m_distant = true;
             StationManager.PrefabsToSearch.Add(PortalStationOne.Prefab.name);
             
             BuildPiece portalPlatform = new(PrefabAssets, "portalPlatform");
@@ -252,6 +261,8 @@ namespace PortalStations
             portalPlatform.DestroyedEffects.Add("sfx_rock_destroyed");
             portalPlatform.ClonePortalSFXFrom = "portal_wood";
             portalPlatform.Crafting.Set(CraftingTable.Workbench);
+            portalPlatform.Prefab.GetComponent<ZNetView>().m_distant = true;
+
             // var platformEmission = portalPlatform.Prefab.transform.Find("emissive").gameObject;
             // platformEmission.SetActive(true);
             // platformEmission.GetComponent<MeshRenderer>().material.color = Color.black;
@@ -289,6 +300,8 @@ namespace PortalStations
             portalStationDoor.DestroyedEffects.Add("sfx_rock_destroyed");
             portalStationDoor.ClonePortalSFXFrom = "portal_wood";
             portalStationDoor.Crafting.Set(CraftingTable.Workbench);
+            portalStationDoor.Prefab.GetComponent<ZNetView>().m_distant = true;
+
             MaterialReplacer.RegisterGameObjectForMatSwap(Utils.FindChild(portalStationDoor.Prefab.transform, "model").gameObject);
             MaterialReplacer.RegisterGameObjectForMatSwap(Utils.FindChild(portalStationDoor.Prefab.transform, "vanilla_effects").gameObject);
             portalStationDoor.Prefab.AddComponent<PortalStation>();
