@@ -155,7 +155,7 @@ public class PortalStation : MonoBehaviour, Interactable, Hoverable, TextReceive
     {
         if (!m_assetsLoaded) return;
         Player closestPlayer = Player.GetClosestPlayer(transform.position, use_distance);
-        bool flag = closestPlayer && closestPlayer.IsTeleportable();
+        bool flag = closestPlayer && closestPlayer.CanUsePortalStation(this);
         SetParticles(flag);
         
         m_intensity = Mathf.MoveTowards(m_intensity, m_active ? 1f : 0.0f, Time.deltaTime / m_fadeDuration);

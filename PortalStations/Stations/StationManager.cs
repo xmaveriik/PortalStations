@@ -10,7 +10,7 @@ using YamlDotNet.Serialization;
 namespace PortalStations.Stations;
 
 [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake))]
-public static class ZNetScene_Awake_Patch
+internal static class ZNetScene_Awake_Patch
 {
     [UsedImplicitly]
     private static void Postfix()
@@ -18,6 +18,20 @@ public static class ZNetScene_Awake_Patch
         if (StationManager.instance == null) return;
         if (!ZNet.instance || !ZNet.instance.IsServer()) return;
         StationManager.instance.InitCoroutine();
+    }
+}
+
+[HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.Awake))]
+internal static class ObjectDB_Awake_Patch
+{
+    [HarmonyPriority(Priority.Last)]
+    private static void Postfix(ObjectDB __instance)
+    {
+        foreach (var item in __instance.m_items)
+        {
+            if (item == null || !item.TryGetComponent(out ItemDrop component)) continue;
+            StationManagerHelpers.itemSharedNamesMap[item.name] = component.m_itemData.m_shared.m_name;
+        }
     }
 }
 
@@ -80,6 +94,7 @@ public class StationManager : MonoBehaviour
 
 public static class StationManagerHelpers
 {
+    public static readonly Dictionary<string, string> itemSharedNamesMap = new();
     private static readonly ISerializer serializer = new SerializerBuilder().Build();
     private static readonly IDeserializer deserializer = new DeserializerBuilder().Build();
     public static void AddFavorite(this Player player, string stationGUID)
@@ -105,6 +120,90 @@ public static class StationManagerHelpers
     }
     
     public static bool IsFavoriteStation(this Player player, string stationGUID) => player.GetFavoriteStations().Contains(stationGUID);
-    
-    
+
+    public static bool CanUsePortableStation(this Player player, bool msg = false)
+    {
+        if (PortalStationsPlugin.TeleportAnything) return true;
+        if (!PortalStationsPlugin.UsePortalKeys)
+        {
+            if (player.IsTeleportable()) return true;
+            if (msg) player.Message(MessageHud.MessageType.Center, "$msg_noteleport");
+            return false;
+        }
+        Dictionary<string, string> prefabToKeyMap = new PortalStationsPlugin.SerializedKeys(PortalStationsPlugin.PortalKeys).Keys;;
+        Dictionary<string, string> sharedNames = new Dictionary<string, string>();
+        foreach (KeyValuePair<string, string> kvp in prefabToKeyMap)
+        {
+            if (!itemSharedNamesMap.TryGetValue(kvp.Key, out string sharedName)) continue;
+            sharedNames.Add(sharedName, kvp.Value);
+        }
+        foreach (ItemDrop.ItemData? item in Player.m_localPlayer.GetInventory().GetAllItems())
+        {
+            if (item.m_shared.m_teleportable) continue;
+            if (!sharedNames.TryGetValue(item.m_shared.m_name, out string? key))
+            {
+                if (msg) player.Message(MessageHud.MessageType.Center, "$msg_noteleport");
+                return false;
+            }
+
+            if (!ZoneSystem.instance.GetGlobalKey(key) && !Player.m_localPlayer.GetUniqueKeys().Contains(key))
+            {
+                if (msg) player.Message(MessageHud.MessageType.Center, "$msg_noteleport");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static bool CanUsePortalStation(this Player player, PortalStation station, bool msg = false)
+    {
+        if (PortalStationsPlugin.TeleportAnything) return true;
+
+        if (!PortalStationsPlugin.UsePortalKeys)
+        {
+            if (player.IsTeleportable()) return true;
+            if (msg) player.Message(MessageHud.MessageType.Center, "$msg_noteleport");
+            return false;
+        }
+        
+        Dictionary<string, string> prefabToKeyMap;
+        string normalizedName = station.name.Replace("(Clone)", string.Empty);
+        if (PortalStationsPlugin.localPortalKeysConfigs.TryGetValue(normalizedName, out var pieceConfig))
+        {
+            prefabToKeyMap = new PortalStationsPlugin.SerializedKeys(pieceConfig.Value).Keys;
+            if (prefabToKeyMap.Count == 0)
+            {
+                prefabToKeyMap = new PortalStationsPlugin.SerializedKeys(PortalStationsPlugin.PortalKeys).Keys;
+            }
+        }
+        else
+        {
+            prefabToKeyMap = new PortalStationsPlugin.SerializedKeys(PortalStationsPlugin.PortalKeys).Keys;
+        }
+            
+        Dictionary<string, string> sharedNames = new Dictionary<string, string>();
+        foreach (KeyValuePair<string, string> kvp in prefabToKeyMap)
+        {
+            if (!itemSharedNamesMap.TryGetValue(kvp.Key, out string sharedName)) continue;
+            sharedNames.Add(sharedName, kvp.Value);
+        }
+            
+        foreach (ItemDrop.ItemData? item in Player.m_localPlayer.GetInventory().GetAllItems())
+        {
+            if (item.m_shared.m_teleportable) continue;
+            if (!sharedNames.TryGetValue(item.m_shared.m_name, out string? key))
+            {
+                if (msg) player.Message(MessageHud.MessageType.Center, "$msg_noteleport");
+                return false;
+            }
+
+            if (!ZoneSystem.instance.GetGlobalKey(key) && !Player.m_localPlayer.GetUniqueKeys().Contains(key))
+            {
+                if (msg) player.Message(MessageHud.MessageType.Center, "$msg_noteleport");
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

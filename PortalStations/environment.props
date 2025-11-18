@@ -3,8 +3,9 @@
         <ValheimGamePath>C:\Program Files (x86)\Steam\steamapps\common\Valheim</ValheimGamePath>
         <BepInExPath>$(ValheimGamePath)\BepInEx</BepInExPath>
         <CorlibPath>$(ValheimGamePath)\unstripped_corlib</CorlibPath>
-        <PublicizedAssembliesPath>$(ValheimGamePath)\valheim_Data\Managed\publicized_assemblies</PublicizedAssembliesPath>
-        <CopyOutputDLLPath>C:\Users\peima\AppData\Roaming\com.kesomannen.gale\valheim\profiles\vanilla\BepInEx\plugins\RustyMods-PortalStations</CopyOutputDLLPath>
+        <AssembliesPath>$(ValheimGamePath)\Valheim_Data\Managed</AssembliesPath>
+        <PublicizedAssembliesPath>$(AssembliesPath)\publicized_assemblies</PublicizedAssembliesPath>
+        <CopyOutputDLLPath>C:\Users\peima\Desktop\VALHEIM MODDING\projects\PortalStations\PortalStations\Thunderstore</CopyOutputDLLPath>
         <AfterTargets>ILRepacker</AfterTargets>
     </PropertyGroup>
 </Project>

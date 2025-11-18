@@ -109,9 +109,9 @@ namespace PortalStations
                 else
                 {
                     // Add client to validated list
-                    PortalStationsPlugin.PortalStationsLogger.LogInfo(
-                        $"Adding peer ({rpc.m_socket.GetHostName()}) to validated list");
+                    PortalStationsPlugin.PortalStationsLogger.LogInfo($"Adding peer ({rpc.m_socket.GetHostName()}) to validated list");
                     ValidatedPeers.Add(rpc);
+                    PortalStationsPlugin.ValidServer = true;
                 }
             }
         }

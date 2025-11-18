@@ -511,43 +511,14 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
     public void OnTeleport()
     {
         if (m_destination == null) return;
-        if (PortalStationsPlugin.UsePortalKeys)
-        {
-            Dictionary<string, string> keys = new PortalStationsPlugin.SerializedKeys(PortalStationsPlugin.PortalKeys).Keys;
-            Dictionary<string, string> sharedNames = new Dictionary<string, string>();
-            foreach (KeyValuePair<string, string> key in keys)
-            {
-                if (ObjectDB.instance.GetItemPrefab(key.Key) is not { } itemPrefab) continue;
-                ItemDrop? item = itemPrefab.GetComponent<ItemDrop>();
-                sharedNames.Add(item.m_itemData.m_shared.m_name, key.Value);
-            }
-            foreach (ItemDrop.ItemData? item in Player.m_localPlayer.GetInventory().GetAllItems())
-            {
-                if (item.m_shared.m_teleportable) continue;
-                if (!sharedNames.TryGetValue(item.m_shared.m_name, out var key))
-                {
-                    Player.m_localPlayer.Message(MessageHud.MessageType.Center, "$msg_noteleport");
-                    return;
-                }
-
-                if (!ZoneSystem.instance.GetGlobalKey(key) && !Player.m_localPlayer.GetUniqueKeys().Contains(key))
-                {
-                    Player.m_localPlayer.Message(MessageHud.MessageType.Center, "$msg_noteleport");
-                    return;
-                }
-            }
-        }
-        else if (!PortalStationsPlugin.TeleportAnything && !Player.m_localPlayer.IsTeleportable())
-        {
-            Player.m_localPlayer.Message(MessageHud.MessageType.Center, "$msg_noteleport");
-            return;
-        }
-
         switch (m_deviceType)
         {
             case DeviceType.None:
                 return;
             case DeviceType.Station:
+                if (m_currentStation == null) return;
+                if (!Player.m_localPlayer.CanUsePortalStation(m_currentStation, true)) return;
+
                 if (PortalStationsPlugin.PortalUseFuel && !Player.m_localPlayer.NoCostCheat())
                 {
                     int cost = m_currentStationInfo?.GetCost(Player.m_localPlayer) ?? 0;
@@ -556,6 +527,8 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
                 }
                 break;
             case  DeviceType.Item:
+                if (!Player.m_localPlayer.CanUsePortableStation(true)) return;
+                
                 if (PortalStationsPlugin.DeviceUseFuel && !Player.m_localPlayer.NoCostCheat()  && m_currentItem != null)
                 {
                     int cost = m_currentStationInfo?.GetCost(Player.m_localPlayer) ?? 0;

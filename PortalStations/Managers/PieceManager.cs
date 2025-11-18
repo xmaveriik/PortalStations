@@ -574,7 +574,9 @@ public class BuildPiece
                     ConfigurationManagerAttributes tableLevelAttributes = new() { Order = --order, Browsable = cfg.table.Value != CraftingTable.None };
                     hideWhenNoneAttributes.Add(tableLevelAttributes);
                 }
-
+                
+                PortalStationsPlugin.AddLocalTeleportKeyConfig(piece, englishName, localizedName, ref order);
+                
                 ConfigEntry<string> itemConfig(string name, string value, string desc)
                 {
                     ConfigurationManagerAttributes attributes = new() { CustomDrawer = DrawConfigTable, Order = --order, Category = localizedName };
