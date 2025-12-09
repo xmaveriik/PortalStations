@@ -28,7 +28,7 @@ public static class Load_PortalStation_UI
             Debug.LogWarning("Couldn't find PortalStationUI");
             return;
         }
-        var craftingPanel = __instance.m_crafting.gameObject;
+        GameObject craftingPanel = __instance.m_crafting.gameObject;
         GameObject? go = Object.Instantiate(panel, __instance.transform.parent.Find("HUD"));
         go.name = "PortalStationUI";
         
@@ -235,8 +235,12 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         search.OnValueChanged(OnSearch);
         scrollRects = GetComponentsInChildren<ScrollRect>(true);
         if (scrollRects != null)
+        {
             foreach (var rect in scrollRects)
+            {
                 rect.scrollSensitivity = 700f;
+            }
+        }
         m_defaultIcon = Icon.sprite;
         m_starIcon = Requirements.favorite.Icon.sprite;
         
@@ -249,6 +253,42 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         defaultTopic = "Portal Stations";
         
         SetPanelPosition(PortalStationsPlugin.PanelPos.Value);
+        if (IsRectTransformOffscreen(m_rect))
+        {
+            CenterPanel();
+        }
+    }
+    
+    public static bool IsRectTransformOffscreen(RectTransform rectTransform)
+    {
+        // Get world corners of the UI element
+        Vector3[] corners = new Vector3[4];
+        rectTransform.GetWorldCorners(corners);
+
+        // Screen bounds
+        float left = 0f;
+        float right = Screen.width;
+        float bottom = 0f;
+        float top = Screen.height;
+
+        // If ANY corner is outside the screen, it's offscreen
+        for (int i = 0; i < 4; i++)
+        {
+            Vector3 c = corners[i];
+            if (c.x < left || c.x > right ||
+                c.y < bottom || c.y > top)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void CenterPanel()
+    {
+        Utils.ClampUIToScreen(m_rect);
+        PortalStationsPlugin.PanelPos.Value = m_rect.position;
     }
 
     public void Start()
@@ -305,10 +345,12 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         m_currentStation = station;
         m_currentStationInfo = new StationInfo(station.m_nview.GetZDO());
         gameObject.SetActive(true);
-        StationTab.SetSelected(true);
+        
+        StationTab.SetSelected(PortalStationsPlugin.PortalToStations);
+        
         SetTopic(station.GetText());
         Description.ResetDescription();
-        LoadStations();
+        if (PortalStationsPlugin.PortalToStations) LoadStations();
         Description.ShowMapButton(null);
         SetTopic(m_currentStationInfo.Name);
         OnUpdate = null;
@@ -316,6 +358,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         m_destination = null;
         SettingTab.Enable(!PortalStationsPlugin.OnlyOwnerCanEdit || m_currentStationInfo.CreatorID == player.GetPlayerID());
         PlayerTab.Enable(PortalStationsPlugin.PortalToPlayers);
+        StationTab.Enable(PortalStationsPlugin.PortalToStations);
     }
 
     public void Show(Player user, ItemDrop.ItemData item)
@@ -324,18 +367,19 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         m_currentItem = item;
         m_currentStationInfo = new StationInfo(user);
         gameObject.SetActive(true);
-        StationTab.SetSelected(true);
+        StationTab.SetSelected(PortalStationsPlugin.PortalToStations);
         SettingTab.Enable(false);
         Description.ResetDescription();
         SetTopic(user.GetPlayerName());
         Description.ShowMapButton(null);
-        LoadStations();
+        if (PortalStationsPlugin.PortalToStations) LoadStations();
         OnUpdate = null;
         MainButton.gameObject.SetActive(false);
         Requirements.SetActive(false);
         m_destination = null;
         PlayerTab.Enable(PortalStationsPlugin.PortalToPlayers);
         SettingTab.Enable(false);
+        StationTab.Enable(PortalStationsPlugin.PortalToStations);
     }
 
     public void OnStationTab()
@@ -459,8 +503,13 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
     {
         DestroyTempItems();
         SetupLastPosition();
-        foreach (StationInfo? info in StationManager.GetStations().Where(zdo => zdo != m_currentStation?.m_nview.GetZDO()).Select(zdo => new StationInfo(zdo)).OrderBy(info => info.Name))
+        HashSet<ZDO> stationZDOs = StationManager.GetStations();
+        if (m_currentStation != null) stationZDOs.Remove(m_currentStation.m_nview.GetZDO());
+        List<StationInfo> stations = stationZDOs.Select(zdo => new StationInfo(zdo)).OrderBy(info => info.Name).ToList();
+        
+        for(int i = 0; i < stations.Count; ++i)
         {
+            StationInfo info = stations[i];
             if (!info.IsValid) continue;
             if (favoriteOnly && !info.IsFavorite) continue;
             TempListItem item = new TempListItem();
@@ -486,9 +535,9 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
     {
         if (m_currentStation == null) return;
         DestroyTempItems();
-        foreach (ZNetPeer? peer in ZNet.instance.GetPeers())
+        foreach (ZNet.PlayerInfo playerInfo in ZNet.instance.GetPlayerList())
         {
-            StationInfo info = new StationInfo(peer);
+            StationInfo info = new StationInfo(playerInfo);
             if (!info.IsValid) continue;
             TempListItem item = new TempListItem();
             item.SetLabel(info.Name);
@@ -505,6 +554,27 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
                 m_destination = info;
             });
         }
+        
+        
+        // foreach (ZNetPeer? peer in ZNet.instance.GetPeers())
+        // {
+        //     StationInfo info = new StationInfo(peer);
+        //     if (!info.IsValid) continue;
+        //     TempListItem item = new TempListItem();
+        //     item.SetLabel(info.Name);
+        //     item.SetIcon(Minimap.instance.GetSprite(Minimap.PinType.Icon1));
+        //     item.SetButton(() =>
+        //     {
+        //         item.SetSelected(true);
+        //         Description.SetName(info.Name);
+        //         Description.SetBodyText(info.GetTooltip());
+        //         Description.ShowMapButton(info);
+        //         Requirements.LoadTeleportCost(info);
+        //         Requirements.favorite.SetFavorite(info.IsFavorite);
+        //         MainButton.gameObject.SetActive(true);
+        //         m_destination = info;
+        //     });
+        // }
         ResizeLeftList();
     }
 
@@ -521,7 +591,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
 
                 if (PortalStationsPlugin.PortalUseFuel && !Player.m_localPlayer.NoCostCheat())
                 {
-                    int cost = m_currentStationInfo?.GetCost(Player.m_localPlayer) ?? 0;
+                    int cost = m_destination.GetCost(Player.m_localPlayer);
                     ItemDrop fuelItem = Requirement.GetFuelItem();
                     Player.m_localPlayer.GetInventory().RemoveItem(fuelItem.m_itemData.m_shared.m_name, cost);
                 }
@@ -531,7 +601,7 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
                 
                 if (PortalStationsPlugin.DeviceUseFuel && !Player.m_localPlayer.NoCostCheat()  && m_currentItem != null)
                 {
-                    int cost = m_currentStationInfo?.GetCost(Player.m_localPlayer) ?? 0;
+                    int cost = m_destination.GetCost(Player.m_localPlayer);
                     ItemDrop fuelItem = Requirement.GetFuelItem();
                     Player.m_localPlayer.GetInventory().RemoveItem(fuelItem.m_itemData.m_shared.m_name, cost);
                     m_currentItem.m_durability -= PortalStationsPlugin.PersonalPortalDurabilityDrain;
@@ -1036,12 +1106,12 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
         {
             if (instance == null) return;
             SetActive(true);
-            var fuelItem = GetFuelItem();
+            ItemDrop fuelItem = GetFuelItem();
             if (!fuelItem.m_itemData.IsValid()) return;
-            var total = destination.GetCost(Player.m_localPlayer);
-            var maxStack = fuelItem.m_itemData.m_shared.m_maxStackSize;
+            int total = destination.GetCost(Player.m_localPlayer);
+            int maxStack = fuelItem.m_itemData.m_shared.m_maxStackSize;
 
-            foreach (var item in items)
+            foreach (RequirementItem? item in items)
             {
                 if (total <= 0)
                 {
@@ -1232,6 +1302,13 @@ public class PortalStationUI : MonoBehaviour, IDragHandler, IBeginDragHandler, I
             Guild = peer.GetGuild();
         }
 
+        public StationInfo(ZNet.PlayerInfo info)
+        {
+            Position = info.m_position;
+            Name = info.m_name;
+            Guild = info.GetGuild();
+        }
+
         public StationInfo(Player user)
         {
             Position = user.transform.position;
@@ -1351,6 +1428,11 @@ public static class StationHelpers
         if (!ZNet.instance) return "";
         if (!Guilds.API.IsLoaded()) return "";
         ZNet.PlayerInfo info = ZNet.instance.GetPlayerList().FirstOrDefault(x => x.m_name == peer.m_playerName);
+        return info.GetGuild();
+    }
+
+    public static string GetGuild(this ZNet.PlayerInfo info)
+    {
         Guilds.PlayerReference reference = Guilds.PlayerReference.fromPlayerInfo(info);
         return Guilds.API.GetPlayerGuild(reference)?.Name ?? "";
     }

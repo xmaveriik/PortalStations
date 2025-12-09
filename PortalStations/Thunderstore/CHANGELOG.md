@@ -1,3 +1,11 @@
+### 1.4.5
+- fixed teleport cost only being 1
+- added code to make sure panel is always within screen bounds on first game load
+
+### 1.4.4
+- added config to disable station tab
+- changed player list to use ZNet PlayerInfo instead of Peer
+
 ### 1.4.3
 - Added teleport keys config for each station, to customize individual portals
 - If list is empty, will use default teleport keys defined in config category `Teleport Keys`

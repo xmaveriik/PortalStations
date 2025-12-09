@@ -27,7 +27,7 @@ namespace PortalStations
     public class PortalStationsPlugin : BaseUnityPlugin
     {
         internal const string ModName = "PortalStations";
-        internal const string ModVersion = "1.4.2";
+        internal const string ModVersion = "1.4.5";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private const string ConfigFileName = ModGUID + ".cfg";
@@ -50,6 +50,7 @@ namespace PortalStations
         private static ConfigEntry<float> _DevicePerFuelAmount = null!;
         private static ConfigEntry<float> _DeviceAdditionalDistancePerUpgrade = null!;
         private static ConfigEntry<Toggle> _PortalToPlayers = null!;
+        private static ConfigEntry<Toggle> _PortalToStations = null!;
         private static ConfigEntry<Toggle> _PortalUseFuel = null!;
         private static ConfigEntry<float> _PortalPerFuelAmount = null!;
         private static ConfigEntry<Toggle> _UsePortalKeys = null!;
@@ -76,6 +77,7 @@ namespace PortalStations
         public static float PersonalPortalDurabilityDrain => _PersonalPortalDurabilityDrain.Value;
         public static bool OnlyOwnersCanDestroy => _OnlyOwnersCanDestroy.Value is Toggle.On;
         public static bool OnlyOwnerCanEdit => _OnlyCreatorCanEdit.Value is Toggle.On;
+        public static bool PortalToStations => _PortalToStations.Value is Toggle.On;
         private void InitConfigs()
         {
             _Font = config("User Interface", "Font", FontManager.FontOptions.AveriaSerifLibre, "Set font");
@@ -102,6 +104,7 @@ namespace PortalStations
             _OnlyOwnersCanDestroy =
                 config("Settings", "Ownership", Toggle.Off, "If on, only owners can destroy portal");
             _OnlyCreatorCanEdit = config("Settings", "Edit", Toggle.On, "If on, only creator can edit portal settings");
+            _PortalToStations = config("Settings", "Portal To Stations", Toggle.On, "If on, station tab is available");
         }
 
         public class SerializedKeys
