@@ -193,7 +193,6 @@ namespace PortalStations
                 "If on, the configuration is locked and can be changed by server admins only.");
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
 
-            Localizer.Load();
             InitPieces();
             InitItems();
             InitConfigs();
